@@ -22,16 +22,13 @@ module tb();
      
   bit clock;
   bit reset_n;
-  bit attack_enable = 0;  // Control flag for attack
+  bit attack_enable = 0;
   
   design_1_axi_vip_0_0_mst_t master_agent_victim;
-  // Note: Don't create VIP agent for attacker - we'll use raw signals
    
-  // Memory map
   xil_axi_ulong BRAM_BASE = 32'h4000_0000;
   xil_axi_ulong ATTACK_ADDR = 32'h4000_1000;
   
-  // Metrics
   int victim_attempts = 0;
   int victim_success = 0;
   int victim_timeout = 0;
@@ -39,17 +36,15 @@ module tb();
   realtime attack_start_time;
   realtime total_victim_latency = 0;
   
-  // Design under test
   design_1 design_1_i(
     .clk_100MHz(clock),
     .reset_rtl_0(reset_n)
   );
   
-  // Clock: 100 MHz (10ns period)
   always #5ns clock <= ~clock;
   
   // ══════════════════════════════════════════════════════════════════════════
-  // ATTACKER THREAD: Raw signal manipulation (NO VIP AGENT)
+  // ATTACKER THREAD
   // ══════════════════════════════════════════════════════════════════════════
   initial begin
     // Wait for attack enable signal from main thread
@@ -75,6 +70,10 @@ module tb();
         release design_1_i.axi_vip_1.inst.IF.WSTRB;
         release design_1_i.axi_vip_1.inst.IF.WLAST;
         release design_1_i.axi_vip_1.inst.IF.BREADY;
+        release design_1_i.axi_vip_1.inst.IF.ARVALID;
+        release design_1_i.axi_vip_1.inst.IF.ARADDR;
+        release design_1_i.axi_vip_1.inst.IF.ARLEN;
+        release design_1_i.axi_vip_1.inst.IF.RREADY;
         break;
       end
       
@@ -118,15 +117,17 @@ module tb();
     realtime tx_start, tx_end;
     int timeout_flag;
     
-    // Initialize ONLY the victim VIP agent
-    master_agent_victim = new("LEGITIMATE_USER", design_1_i.axi_vip_0.inst.IF);
-    master_agent_victim.start_master();
-    
-    // System reset
+    // *** RESET FIRST, THEN INITIALIZE VIP ***
     reset_n = 0;
     #200ns;
     reset_n = 1;
-    #500ns;
+    #100ns;  // Let reset propagate
+    
+    // NOW initialize VIP agent after reset is released
+    master_agent_victim = new("LEGITIMATE_USER", design_1_i.axi_vip_0.inst.IF);
+    master_agent_victim.start_master();
+    
+    #400ns;  // Additional settling time
     
     $display("");
     $display("╔════════════════════════════════════════════════════════════╗");
