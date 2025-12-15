@@ -1,5 +1,15 @@
 `timescale 1ns / 1ps
 
+// ════════════════════════════════════════════════════════════════════════════
+// AXI BUFFER OVERFLOW ATTACK - PROOF OF CONCEPT
+// ════════════════════════════════════════════════════════════════════════════
+// Attack: Generate excessive outstanding transactions to saturate internal
+// FIFOs, causing legitimate requests to be dropped or responses corrupted.
+//
+// Method: Issue multiple write/read transactions without waiting for completion
+// Goal: Exceed interconnect's outstanding transaction limit
+// ════════════════════════════════════════════════════════════════════════════
+
 import axi_vip_pkg::*;
 import design_1_axi_vip_0_0_pkg::*; 
 import design_1_axi_vip_1_0_pkg::*; 
@@ -12,9 +22,8 @@ module tb();
   design_1_axi_vip_0_0_mst_t master_agent_victim;
   design_1_axi_vip_1_0_mst_t master_agent_attacker;
    
-  // Memory map
   xil_axi_ulong BRAM_BASE = 32'h4000_0000;
-  xil_axi_ulong ATTACK_ADDR = 32'h4000_2000;
+  xil_axi_ulong ATTACK_BASE = 32'h4000_2000;
   
   // Metrics
   int attacker_outstanding = 0;
@@ -24,93 +33,96 @@ module tb();
   int victim_failures = 0;
   int victim_response_errors = 0;
   
-  realtime attack_start_time;
+  realtime attack_start;
   
-  // Design under test
   design_1 design_1_i(
     .clk_100MHz(clock),
     .reset_rtl_0(reset_n)
   );
   
-  // Clock: 100 MHz (10ns period)
   always #5ns clock <= ~clock;
-
-  initial begin 
-
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // ATTACKER: Flood with outstanding transactions
+  // ══════════════════════════════════════════════════════════════════════════
+  initial begin
     axi_transaction wr_trans;
     xil_axi_resp_t resp;
     bit[31:0] attack_data;
-
-    // Wait for reset release
+    
     @(posedge reset_n);
-    #500ns; // Small stabilization delay
-
-    attack_start_time = $realtime;
+    #500ns;
+    
+    attack_start = $realtime;
     $display("[ATTACK] T=%0t: Launching buffer overflow attack...", $time);
     $display("[ATTACK] Strategy: Generate %0d outstanding transactions", 64);
-
-for (int i = 0; i < 128; i++) begin
-    attack_data = 32'hBAD00000 | i;
-
-    fork 
+    
+    // Generate massive number of outstanding transactions
+    for(int i = 0; i < 64; i++) begin
+      attack_data = 32'hBAD00000 | i;
+      
+      // Fire and forget - don't wait for completion
+      fork
         begin
-            automatic int trans_id = i;
-            master_agent_attacker.AXI4LITE_WRITE_BURST(
-                ATTACK_BASE + (trans_id * 4),
-                0,
-                attack_data,
-                resp
-            );
-            attacker_completed++;
+          automatic int trans_id = i;
+          master_agent_attacker.AXI4LITE_WRITE_BURST(
+            ATTACK_BASE + (trans_id * 4),
+            0,
+            attack_data,
+            resp
+          );
+          attacker_completed++;
         end
-    join_none
-
-    attacker_outstanding++;
-
-    #10ns;
-end
-
-$display("[ATTACK] T=%0t: Launched %0d outstanding transactions", 
+      join_none
+      
+      attacker_outstanding++;
+      
+      // Minimal delay between transaction launches
+      #10ns;
+    end
+    
+    $display("[ATTACK] T=%0t: Launched %0d outstanding transactions", 
              $time, attacker_outstanding);
-
-repeat(100) begin
-    attack_data = 32'hDEAD0000;
-
-    fork 
+    
+    // Continue generating traffic to maintain pressure
+    repeat(100) begin
+      attack_data = 32'hBAD0DEAD;
+      
+      fork
         begin
-            master_agent_attacker.AXI4LITE_WRITE_BURST(
-                ATTACK_BASE + ($urandom() % 256)*4,
-                0,
-                attack_data,
-                resp
-            );
+          master_agent_attacker.AXI4LITE_WRITE_BURST(
+            ATTACK_BASE + ($urandom() % 256) * 4,
+            0,
+            attack_data,
+            resp
+          );
         end
-    join_none
-
-    #100ns;
-end
-end
-
-
-#victim
-
-initial begin
+      join_none
+      
+      #100ns;
+    end
+  end
+  
+  // ══════════════════════════════════════════════════════════════════════════
+  // VICTIM: Legitimate transactions during attack
+  // ══════════════════════════════════════════════════════════════════════════
+  initial begin
     xil_axi_resp_t resp;
     bit[31:0] victim_data;
     realtime tx_start, tx_end;
-
-    master_agent_victim = new("master_agent_victim", design_1_i.axi_vip_0.inst.IF);
-    master_agent_attacker = new("master_agent_attacker", design_1_i.axi_vip_1.inst.IF);
-
+    
+    master_agent_victim = new("VICTIM", design_1_i.axi_vip_0.inst.IF);
+    master_agent_attacker = new("ATTACKER", design_1_i.axi_vip_1.inst.IF);
+    
     master_agent_victim.start_master();
     master_agent_attacker.start_master();
-
+    
     reset_n = 0;
     #200ns;
     reset_n = 1;
     #1000ns;
-
-$display("");
+    
+    $display("");
     $display("╔════════════════════════════════════════════════════════════╗");
     $display("║        AXI BUFFER OVERFLOW ATTACK - PROOF OF CONCEPT       ║");
     $display("╠════════════════════════════════════════════════════════════╣");
