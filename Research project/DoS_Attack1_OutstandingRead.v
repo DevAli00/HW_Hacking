@@ -256,35 +256,47 @@ module tb_outstanding_read_attack();
     // MEASURE VICTIM LATENCY UNDER ATTACK
     avg_attack = 0;
     for (int v = 0; v < 15; v++) begin
+      bit tx_done = 0;
+      bit tx_timeout = 0;
+      
       victim_attempts++;
       t_start = $realtime;
 
-      fork : victim_tx
+      fork
         begin
           victim_agent.AXI4LITE_READ_BURST(SHARED_ADDR + v*4, 0, read_data, resp);
           t_end = $realtime;
           latency = t_end - t_start;
-          victim_success++;
-          avg_attack += latency;
-          attack_latencies.push_back(latency);
-
-          if (latency > baseline_latency * 10.0) begin
-            $display("[VICTIM] #%02d: 🔥 CRITICAL LAG %.0f ns (%.1fx)",
-                     v+1, latency, latency/baseline_latency);
-          end else if (latency > baseline_latency * 4.0) begin
-            $display("[VICTIM] #%02d: ⚠ HIGH LAG %.0f ns (%.1fx)",
-                     v+1, latency, latency/baseline_latency);
-          end else begin
-            $display("[VICTIM] #%02d: ✓ OK %.0f ns", v+1, latency);
-          end
+          tx_done = 1;
         end
         begin
           #200000ns; // 200us timeout
-          victim_timeout++;
-          $display("[VICTIM] #%02d: ✗ TIMEOUT (Bus saturated)", v+1);
+          tx_timeout = 1;
         end
       join_any
-      disable victim_tx;
+      
+      if (tx_done) begin
+        victim_success++;
+        avg_attack += latency;
+        attack_latencies.push_back(latency);
+
+        if (latency > baseline_latency * 10.0) begin
+          $display("[VICTIM] #%02d: 🔥 CRITICAL LAG %.0f ns (%.1fx)",
+                   v+1, latency, latency/baseline_latency);
+        end else if (latency > baseline_latency * 4.0) begin
+          $display("[VICTIM] #%02d: ⚠ HIGH LAG %.0f ns (%.1fx)",
+                   v+1, latency, latency/baseline_latency);
+        end else begin
+          $display("[VICTIM] #%02d: ✓ OK %.0f ns", v+1, latency);
+        end
+      end else begin
+        victim_timeout++;
+        $display("[VICTIM] #%02d: ✗ TIMEOUT (Bus saturated)", v+1);
+        // Wait for pending transaction to complete before next attempt
+        wait(tx_done);
+        $display("[VICTIM] #%02d: (Transaction completed after timeout)", v+1);
+      end
+      
       #800ns;
     end
 
