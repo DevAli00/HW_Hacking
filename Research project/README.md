@@ -32,6 +32,7 @@ Chaque test suit la même méthodologie :
 **Fichier** : `09_Outstanding_ReadFlood_1v1.v`
 **Module** : `tb_attack_read_1vs1`
 **Scenario** : 1 Attaquant vs 1 Victime - Outstanding Read Flood
+**Resultat** : **x85 de ralentissement en latence** - un seul IP malveillant multiplie par 85 le temps d'acces au bus pour la victime
 
 ### Principe
 
@@ -39,18 +40,17 @@ Cette attaque est la démonstration la plus représentative d'un scénario réel
 
 L'attaque exploite le mécanisme de **transactions outstanding** du protocole AXI4 complet : au lieu d'attendre la réponse de chaque requête avant d'en émettre une nouvelle (comme en AXI4-Lite), l'attaquant envoie **jusqu'à 16 requêtes de lecture en vol simultanément**, chacune avec un burst maximal de 256 beats. Un seul maître malveillant monopolise ainsi les FIFOs internes de l'interconnect.
 
-### Architecture simplifiée
+### Architecture du design (Block Design Vivado)
 
-```
-                    ┌─────────────────────────────┐
-  Victime (VIP 0)  ─┤                             ├─ BRAM
-  Attaquant (VIP 1) ─┤   AXI Interconnect         ├─ (0x4000_0000)
-  VIP 2 (IDLE)      ─┤   (Round-Robin Arbitration)│
-  VIP 3 (IDLE)      ─┤                             │
-                    └─────────────────────────────┘
-```
+![Architecture du block design Vivado](architecture.png)
 
-Les VIP 2 et 3 sont instanciés car le block design matériel les requiert, mais ils restent **inactifs pendant toute la simulation**. Cela isole l'impact d'un unique attaquant.
+Le block design ci-dessus montre l'architecture matérielle utilisée pour la simulation. On y distingue :
+- **4 AXI Verification IPs** (`axi_vip_0` à `axi_vip_3`) jouant le rôle de maîtres AXI
+- Un **AXI Interconnect** (`axi_vip_0_axi_periph`) avec 4 ports esclaves (S00 à S03) et un port maître (M00) connecté à la BRAM
+- Un **AXI BRAM Controller** (`axi_bram_ctrl_0`) relié à un **Block Memory Generator** (`axi_bram_ctrl_0_bram`)
+- Les signaux d'horloge (`clk_100MHz`) et de reset (`reset_rtl_0`) partagés par tous les blocs
+
+Dans le scénario 1v1, seuls `axi_vip_0` (victime, port S00) et `axi_vip_1` (attaquant, port S01) sont actifs. Les VIP 2 et 3 sont instanciés car le block design les requiert, mais ils restent **inactifs pendant toute la simulation**. Cela isole l'impact d'un unique attaquant.
 
 ### Configuration de l'attaque
 
@@ -125,11 +125,43 @@ Si la lecture aboutit, sa latence et le facteur de ralentissement (`latency / av
 
 #### Phase 5 - Rapport final 
 
-L'attaque est désactivée, et le résultat final est affiché :
+L'attaque est désactivée, et le résultat final est affiché. Le résultat obtenu en simulation est un **ralentissement de x85** : la latence de la victime est multipliée par 85 par rapport à la baseline. Cela signifie qu'une opération de lecture qui prenait normalement quelques dizaines de nanosecondes se retrouve bloquée pendant plusieurs milliers de nanosecondes, uniquement à cause d'un seul IP malveillant sur le bus.
+
 ```
-[RESULT] Final Avg Latency: XXX ns (Y.Yx slowdown)
+[RESULT] Final Avg Latency: XXX ns (85.0x slowdown)
 ```
 
+### Resultats de simulation
+
+![Resultats de la simulation dans la console Vivado](results.png)
+
+La capture ci-dessus montre la sortie console de la simulation Vivado pour l'attaque `09_Outstanding_ReadFlood_1v1.v`. On y observe :
+- La **baseline** mesurée avant l'attaque (latence normale de la victime)
+- Les **latences individuelles** de chaque tentative de lecture de la victime pendant l'attaque, avec le facteur de ralentissement associe
+- Le **resultat final** confirmant le facteur de ralentissement de x85
+
+### Analyse des formes d'onde (Waveform)
+
+![Vue globale des formes d'onde](waveform.png)
+
+La vue globale du waveform montre l'ensemble de la simulation. On distingue les signaux AXI de la **victime** (S00, en vert) et de l'**attaquant** (S01, en rouge) :
+- **S00_AXI_arready / arvalid / rvalid** : signaux du canal de lecture de la victime
+- **S01_AXI_arvalid / rvalid / rlast** : signaux du canal de lecture de l'attaquant
+
+Avant l'activation de `attack_enable`, la victime accede au bus librement avec des latences faibles. Apres l'activation, on voit clairement les signaux de l'attaquant dominer le bus, avec une activite quasi-continue sur les canaux S01.
+
+![Vue zoomee des formes d'onde pendant l'attaque](waveform_zoom.png)
+
+La vue zoomee permet d'observer en detail le comportement pendant l'attaque :
+- Les signaux `S01_AXI_rvalid` de l'attaquant sont constamment actifs (valeur `1`), indiquant un flux continu de donnees de lecture en reponse aux transactions outstanding
+- Les signaux `S01_AXI_rlast` pulsent regulierement, marquant la fin de chaque burst de 256 beats
+- Les signaux de la victime (`S00_AXI_arready`, `S00_AXI_rvalid`) sont sporadiques et comprimes, montrant que la victime n'obtient que de rares fenetres d'acces au bus entre les bursts de l'attaquant
+
+### Fichier de configuration waveform
+
+Le fichier `tb_attack_read_1vs1_behav.wcfg` est le fichier de configuration des formes d'onde Vivado associe a cette simulation. Il peut etre ouvert directement dans le simulateur Vivado pour reproduire les vues presentees ci-dessus, avec les signaux pre-configures (groupes Victime/Attaquant, couleurs, echelles de temps).
+
+Pour l'ouvrir : **Vivado > Simulation > Open Waveform Configuration > `tb_attack_read_1vs1_behav.wcfg`**
 
 ---
 

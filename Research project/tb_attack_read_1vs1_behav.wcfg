@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="tb_attack_read_1vs1_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="axi_bram_ctrl_funcs" />
+            <top_module name="axi_vip_pkg" />
+            <top_module name="glbl" />
+            <top_module name="std" />
+            <top_module name="tb_attack_read_1vs1" />
+            <top_module name="vcomponents" />
+            <top_module name="xil_common_vip_pkg" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="0.000000 us"></ZoomStartTime>
+      <ZoomEndTime time="120.965001 us"></ZoomEndTime>
+      <Cursor1Time time="49.175001 us"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="329"></NameColumnWidth>
+      <ValueColumnWidth column_width="161"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="7" />
+   <wvobject type="logic" fp_name="/tb_attack_read_1vs1/clock">
+      <obj_property name="ElementShortName">clock</obj_property>
+      <obj_property name="ObjectShortName">clock</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/tb_attack_read_1vs1/reset_n">
+      <obj_property name="ElementShortName">reset_n</obj_property>
+      <obj_property name="ObjectShortName">reset_n</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/tb_attack_read_1vs1/attack_enable">
+      <obj_property name="ElementShortName">attack_enable</obj_property>
+      <obj_property name="ObjectShortName">attack_enable</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/tb_attack_read_1vs1/test_done">
+      <obj_property name="ElementShortName">test_done</obj_property>
+      <obj_property name="ObjectShortName">test_done</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/tb_attack_read_1vs1/SHARED_ADDR">
+      <obj_property name="ElementShortName">SHARED_ADDR[31:0]</obj_property>
+      <obj_property name="ObjectShortName">SHARED_ADDR[31:0]</obj_property>
+   </wvobject>
+   <wvobject type="group" fp_name="group1515">
+      <obj_property name="label">Victime</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject type="array" fp_name="/tb_attack_read_1vs1/design_1_i/axi_vip_0_axi_periph/S00_AXI_arready">
+         <obj_property name="ElementShortName">S00_AXI_arready[0:0]</obj_property>
+         <obj_property name="ObjectShortName">S00_AXI_arready[0:0]</obj_property>
+      </wvobject>
+      <wvobject type="array" fp_name="/tb_attack_read_1vs1/design_1_i/axi_vip_0_axi_periph/S00_AXI_rvalid">
+         <obj_property name="ElementShortName">S00_AXI_rvalid[0:0]</obj_property>
+         <obj_property name="ObjectShortName">S00_AXI_rvalid[0:0]</obj_property>
+      </wvobject>
+      <wvobject type="array" fp_name="/tb_attack_read_1vs1/design_1_i/axi_vip_0_axi_periph/S00_AXI_arvalid">
+         <obj_property name="ElementShortName">S00_AXI_arvalid[0:0]</obj_property>
+         <obj_property name="ObjectShortName">S00_AXI_arvalid[0:0]</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject type="group" fp_name="group1520">
+      <obj_property name="label">Attaquant</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject type="array" fp_name="/tb_attack_read_1vs1/design_1_i/axi_vip_0_axi_periph/S01_AXI_arvalid">
+         <obj_property name="ElementShortName">S01_AXI_arvalid[0:0]</obj_property>
+         <obj_property name="ObjectShortName">S01_AXI_arvalid[0:0]</obj_property>
+         <obj_property name="CustomSignalColor">#FF0000</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+      <wvobject type="array" fp_name="/tb_attack_read_1vs1/design_1_i/axi_vip_0_axi_periph/S01_AXI_rvalid">
+         <obj_property name="ElementShortName">S01_AXI_rvalid[0:0]</obj_property>
+         <obj_property name="ObjectShortName">S01_AXI_rvalid[0:0]</obj_property>
+         <obj_property name="CustomSignalColor">#FF0000</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+      <wvobject type="array" fp_name="/tb_attack_read_1vs1/design_1_i/axi_vip_0_axi_periph/S01_AXI_rlast">
+         <obj_property name="ElementShortName">S01_AXI_rlast[0:0]</obj_property>
+         <obj_property name="ObjectShortName">S01_AXI_rlast[0:0]</obj_property>
+         <obj_property name="CustomSignalColor">#FF0000</obj_property>
+         <obj_property name="UseCustomSignalColor">true</obj_property>
+      </wvobject>
+   </wvobject>
+</wave_config>
