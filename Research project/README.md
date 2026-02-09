@@ -63,7 +63,7 @@ Les VIP 2 et 3 sont instanciés car le block design matériel les requiert, mais
 
 ### Fonctionnement détaillé
 
-#### Phase 1 - Initialisation (lignes 60-79)
+#### Phase 1 - Initialisation 
 
 Construction et démarrage des 4 agents VIP. Seul l'attaquant 1 est configuré avec des profondeurs de transaction augmentées (`set_transaction_depth(4096)` et `set_max_item_cnt(10000)`) pour supporter le volume de flooding.
 
@@ -74,7 +74,7 @@ attacker2_agent = new("Attacker2", design_1_i.axi_vip_2.inst.IF);  // IDLE
 attacker3_agent = new("Attacker3", design_1_i.axi_vip_3.inst.IF);  // IDLE
 ```
 
-#### Phase 2 - Thread attaquant (lignes 82-108)
+#### Phase 2 - Thread attaquant 
 
 Un unique thread est lancé via `fork/join_none`. La boucle d'attaque fonctionne ainsi :
 
@@ -94,7 +94,7 @@ L'adresse est calculée de manière cyclique : `SHARED_ADDR + ((op_count % 256) 
 
 La clé de l'efficacité est la politique `XIL_AXI_NO_RETURN` : l'attaquant n'attend pas la réponse de chaque requête, il les empile. L'interconnect se retrouve avec 16 transactions de lecture en pipeline, chacune nécessitant 256 transferts de données sur le bus.
 
-#### Phase 3 - Mesure baseline (lignes 110-132)
+#### Phase 3 - Mesure baseline 
 
 Avant l'attaque, la victime :
 1. Ecrit 256 mots en mémoire (`0xCAFE_0000 | i`)
@@ -102,7 +102,7 @@ Avant l'attaque, la victime :
 
 Cette baseline sert de référence pour quantifier l'impact de l'attaque.
 
-#### Phase 4 - Mesure sous attaque (lignes 136-169)
+#### Phase 4 - Mesure sous attaque 
 
 Après activation de l'attaque et 20 µs de warmup :
 - La victime tente **10 lectures AXI4-Lite**
@@ -123,22 +123,13 @@ join_any
 
 Si la lecture aboutit, sa latence et le facteur de ralentissement (`latency / avg_baseline`) sont affichés. Sinon, un TIMEOUT est rapporté.
 
-#### Phase 5 - Rapport final (lignes 171-178)
+#### Phase 5 - Rapport final 
 
 L'attaque est désactivée, et le résultat final est affiché :
 ```
 [RESULT] Final Avg Latency: XXX ns (Y.Yx slowdown)
 ```
 
-### Pourquoi cette attaque est la plus pertinente
-
-1. **Réalisme** : dans un SoC réel, un seul IP compromis (3rd-party IP, IP avec backdoor, ou IP exploité par un firmware malveillant) constitue le scénario de menace le plus probable. Démontrer une attaque 1-contre-1 est plus convaincant qu'un scénario à 3 attaquants.
-
-2. **Démonstration d'insuffisance de l'arbitrage** : l'interconnect AXI utilise un arbitrage round-robin qui en théorie garantit un accès équitable. Le 1vs1 montre que cette garantie est illusoire face aux transactions outstanding : même en alternant entre victime et attaquant, l'attaquant a déjà 16 requêtes en file d'attente et des bursts de 256 beats, ce qui monopolise le bus bien au-delà de son "tour".
-
-3. **Isolation des variables** : avec un seul attaquant, on peut mesurer précisément l'impact d'un IP malveillant sans effet de cumul. Le facteur de ralentissement observé reflète directement la vulnérabilité de l'interconnect.
-
-4. **Simplicité du vecteur d'attaque** : l'attaque ne nécessite aucun mécanisme complexe - juste un maître AXI qui émet des lectures avec transactions outstanding. C'est un comportement que n'importe quel IP matériel peut produire sans modification particulière du protocole.
 
 ---
 
@@ -223,7 +214,7 @@ Génère un **tableau comparatif final** identifiant automatiquement l'attaque l
 
 ---
 
-## Evolution du projet
+## Evolution 
 
 ```
 01_Prototype_ReadFlood_AXI4Lite.v    (prototype, 1 attaquant, AXI4-Lite bloquant)
@@ -241,16 +232,4 @@ Génère un **tableau comparatif final** identifiant automatiquement l'attaque l
         └─→ 09_Outstanding_ReadFlood_1v1.v     ★ Attaque principale (1v1, réaliste)
 ```
 
-## Conclusion
 
-L'attaque **Outstanding Read Flood 1v1** (`09_Outstanding_ReadFlood_1v1.v`) constitue la démonstration la plus convaincante de la vulnérabilité du bus AXI pour plusieurs raisons :
-
-- **Un seul IP malveillant suffit** pour impacter significativement un IP légitime, ce qui correspond au scénario de menace le plus réaliste dans un SoC
-- Le mécanisme des **transactions outstanding** avec bursts maximaux contourne l'arbitrage round-robin en monopolisant les ressources internes de l'interconnect
-- La simplicité de l'attaque (lectures standard AXI4) signifie qu'aucune modification du protocole n'est nécessaire, rendant la menace accessible à n'importe quel IP tiers
-
-Ces résultats démontrent la nécessité de protections matérielles :
-- **AXI Firewall** pour isoler les plages d'adresses par maître
-- **QoS (Quality of Service)** pour prioriser le trafic légitime
-- **Rate Limiters** pour limiter le débit par maître
-- **Quotas de transactions outstanding** par IP
